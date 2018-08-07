@@ -75,65 +75,69 @@ def createAllRaidList(infile, ndisk, stripe):
 #   ndisk : number of all disk for raid 5 configuration (assuming ndisk always >= 3)
 #   segment_size : size of segment in each disk (chunk size), please see : https://4.bp.blogspot.com/-P_0tQLC8lIs/Ucyk5Kpc5yI/AAAAAAAAA7I/ASAMO4y91gA/s795/Storage_segment_and_stripe_size.png
 def createAllRaid5Files(infile, ndisk, segment_size):
+  outtraces = []
   for i in range (0,ndisk):
     outfile = open("out/"+infile+"-raid5disk" + str(i) + ".trace", "w")
-    new_trace = createRaid5Subtrace(infile, i, ndisk, segment_size)
+    outtraces.append(outfile)
+
+  blk_size = 4096 # or sector size in hdd (in bytes)
+  blk_per_segment = segment_size / blk_size
+  blk_per_stripe = blk_per_segment * ndisk
+
+  intrace = open("in/" + infile, "r")
+  for line in intrace:
+    token = line.split()
+    time = long(token[0])
+    devno = token[1]
+    blkno = int(token[2])
+    blkcount = int(token[3])
+    operation = int(token[4])
+
+    # calculating new starting blkno
+    target_stripe_id = blkno / (blk_per_segment * (ndisk-1))
+    blk_stripe_offset = (blkno + (blk_per_segment*target_stripe_id)) % blk_per_stripe
+    parity_disk_id = target_stripe_id % ndisk
+    target_disk_id = blk_stripe_offset / blk_per_segment
+    if parity_disk_id <= target_disk_id:
+      target_disk_id = target_disk_id + 1
+    new_blkno = (target_stripe_id*blk_per_segment) + (blk_stripe_offset%blk_per_segment)
+
+    # iterate blkcount
+    current_disk_id = target_disk_id
+    current_stripe_id = target_stripe_id
+    current_blkno = new_blkno
+    current_blkcount = blkcount
+    next_segment_blk = (current_stripe_id+1)*blk_per_segment
     
-    for x in new_trace:
-      outfile.write(x)
+    max_blkcount_segment = 0
+    min_blkno_segment = current_blkno
 
-    outfile.close()
+    while blkcount > 0:
+      if current_blkcount + current_blkno > next_segment_blk:
+        current_blkcount = next_segment_blk-current_blkno
 
+      outtraces[current_disk_id].write("{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation) + "\n")
+      
+      if max_blkcount_segment < current_blkcount: 
+        max_blkcount_segment = current_blkcount
 
-def createRaid5Subtrace(original_trace, diskid, ndisk, segment_size):
-    out = []
-    blk_size = 4096 # or sector size in hdd (in bytes)
-    blk_per_segment = segment_size / blk_size
-    blk_per_stripe = blk_per_segment * ndisk
-
-    old_trace = open("in/" + original_trace)
-    for line in old_trace:
-      token = line.split(" ")
-      time = token[0]
-      devno = token[1]
-      blkno = int(token[2].strip())
-      blkcount = int(token[3].strip())
-      operation = token[4]
-
-      # calculating new blkno
-      target_stripe_id = blkno / (blk_per_segment * (ndisk-1))
-      blk_stripe_offset = (blkno + (blk_per_segment*target_stripe_id)) % blk_per_stripe
-      parity_disk_id = target_stripe_id % ndisk
-      target_disk_id = blk_stripe_offset / blk_per_segment
-      if parity_disk_id <= target_disk_id:
-        target_disk_id = target_disk_id + 1
-      new_blkno = (target_stripe_id*blk_per_segment) + (blk_stripe_offset%blk_per_segment)
-
+      # move to next segment and skip parity segment
       while True:
-        if target_disk_id == diskid and blkcount != 0:
-          out.append("{} {} {} {} {}".format(time, devno, new_blkno, blkcount, operation))
-
-        # make write commands to parity disk
-        if operation == "1" and target_disk_id == parity_disk_id:
-          out.append("{} {} {} {} {}".format(time, devno, new_blkno, blkcount, operation))
-        
-        # all the blk have been processed, exit loop
-        if blkcount <= blk_per_segment:
+        current_disk_id = current_disk_id + 1
+        if current_disk_id == ndisk:
+          # write parity before change to next stripe
+          if operation == 0:
+            outtraces[current_stripe_id%ndisk].write("{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation) + "\n")
+          current_disk_id = 0
+          current_stripe_id = current_stripe_id + 1
+        if current_disk_id != current_stripe_id%ndisk:
+          current_blkno = current_stripe_id * blk_per_segment
+          min_blkno_segment = current_blkno
           break
-        
-        # need to write to the next segment
-        else:
-          blkcount = blkcount - blk_per_segment
-          target_disk_id = target_disk_id + 1
-          
-          # handle edge of stripe
-          if target_disk_id == ndisk:
-            target_disk_id = 0
-            target_stripe_id = target_stripe_id + 1
 
-          # jump parity disk
-          if target_disk_id == target_stripe_id % ndisk:
-            target_disk_id = target_disk_id + 1
+      blkcount = blkcount - current_blkcount
+      next_segment_blk = (current_stripe_id+1)*blk_per_segment
 
-    return out
-
+  for i in range (0,ndisk):
+    outtraces[i].close()
+  intrace.close()
