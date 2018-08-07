@@ -75,6 +75,7 @@ def createAllRaidList(infile, ndisk, stripe):
 #   ndisk : number of all disk for raid 5 configuration (assuming ndisk always >= 3)
 #   segment_size : size of segment in each disk (chunk size), please see : https://4.bp.blogspot.com/-P_0tQLC8lIs/Ucyk5Kpc5yI/AAAAAAAAA7I/ASAMO4y91gA/s795/Storage_segment_and_stripe_size.png
 def createAllRaid5Files(infile, ndisk, segment_size):
+  firstline = [True] * ndisk
   outtraces = []
   for i in range (0,ndisk):
     outfile = open("out/"+infile+"-raid5disk" + str(i) + ".trace", "w")
@@ -116,7 +117,11 @@ def createAllRaid5Files(infile, ndisk, segment_size):
       if current_blkcount + current_blkno > next_segment_blk:
         current_blkcount = next_segment_blk-current_blkno
 
-      outtraces[current_disk_id].write("{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation) + "\n")
+      if firstline[current_disk_id] is False:
+        outtraces[current_disk_id].write("\n")
+      else:
+        firstline[current_disk_id] = False
+      outtraces[current_disk_id].write("{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation))
       
       if max_blkcount_segment < current_blkcount: 
         max_blkcount_segment = current_blkcount
@@ -127,7 +132,11 @@ def createAllRaid5Files(infile, ndisk, segment_size):
         if current_disk_id == ndisk:
           # write parity before change to next stripe
           if operation == 0:
-            outtraces[current_stripe_id%ndisk].write("{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation) + "\n")
+            if firstline[current_stripe_id%ndisk] is False:
+              outtraces[current_stripe_id%ndisk].write("\n")
+            else:
+              firstline[current_stripe_id%ndisk] = False
+            outtraces[current_stripe_id%ndisk].write("{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
           current_disk_id = 0
           current_stripe_id = current_stripe_id + 1
         if current_disk_id != current_stripe_id%ndisk:
