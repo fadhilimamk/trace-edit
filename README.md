@@ -50,15 +50,23 @@ In this example get RAID disks from 4 disks with the stripe unit size 65536 byte
 
 <pre>python trace-editor.py -breaktoraid -file &lt;infile&gt; -ndisk 4 -stripe 65536</pre>
 
+
 <p>
-5. Check IO imbalance in the RAID Disks.
+5. Break to RAID-5 disks
+In this example get RAID-5 disks from 3 disks with the segment size is 40960 bytes
+</p>
+
+<pre>python trace-editor.py -breaktoraid5 -file &lt;infile&gt; -ndisk 3 -stripe 40960</pre>
+
+<p>
+6. Check IO imbalance in the RAID Disks.
 This example uses 3disks with the granularity of 5minutes.
 </p>
 
 <pre>python trace-editor.py -ioimbalance -file &lt;filename&gt; -granularity 5</pre>
 
 <p>
-6. Check the busiest or the most loaded (in kB) time for a specific disk in a directory <br />
+7. Check the busiest or the most loaded (in kB) time for a specific disk in a directory <br />
 Busiest = a time range with the largest number of requests <br />
 Most Loaded = a time range with the largest total requests size <br />
 <br />

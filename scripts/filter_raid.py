@@ -114,7 +114,10 @@ def createRaid5Subtrace(original_trace, diskid, ndisk, segment_size):
           out.append("{} {} {} {} {}".format(time, devno, new_blkno, blkcount, operation))
 
         # make write commands to parity disk
+        if operation == "1" and target_disk_id == parity_disk_id:
+          out.append("{} {} {} {} {}".format(time, devno, new_blkno, blkcount, operation))
         
+        # all the blk have been processed, exit loop
         if blkcount <= blk_per_segment:
           break
         

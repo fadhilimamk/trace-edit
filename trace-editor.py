@@ -41,6 +41,7 @@ if __name__ == '__main__':
   parser.add_argument("-preprocessBlkReplayTrace", help="preprocess the blkreplay trace into disksim ascii format", action='store_true')
   parser.add_argument("-preprocessUnixBlkTrace", help="preprocess the blkreplay trace into disksim ascii format", action='store_true')
   parser.add_argument("-breaktoraid", help="create a RAID-0 subtrace", action='store_true')
+  parser.add_argument("-breaktoraid5", help="create a RAID-5 subtrace", action='store_true')
   parser.add_argument("-ioimbalance", help="check RAID IO Imbalance", action='store_true')
   parser.add_argument("-combine", help="combine preprocessed traces inside a directory", action='store_true')
   parser.add_argument("-toplargeio", help="get n top large io", action='store_true')
@@ -59,8 +60,9 @@ if __name__ == '__main__':
   parser.add_argument("-top", help="top n", type=int, default=1)
   parser.add_argument("-resize", help="resize a trace", type=float, default=1.0)
   parser.add_argument("-rerate", help="rerate a trace", type=float, default=1.0)
-  parser.add_argument("-ndisk", help="n disk for RAID", type=int, default=2)
+  parser.add_argument("-ndisk", help="n disk for RAID", type=int, default=3)
   parser.add_argument("-stripe", help="RAID stripe unit size in byte", type=int, default=4096)
+  parser.add_argument("-segment", help="RAID segment size in byte", type=int, default=40960)
   parser.add_argument("-granularity", help="granularity to check RAID IO imbalance in minutes", type=int, default=1)
   parser.add_argument("-timerange", help="time range to cut the trace", type=float, nargs = 2)
   args = parser.parse_args()
@@ -88,6 +90,8 @@ if __name__ == '__main__':
     toplargeio.getLargestIO(args.file)
   elif (args.breaktoraid):
     filter_raid.createAllRaidFiles(args.file, args.ndisk, args.stripe)
+  elif (args.breaktoraid5):
+    filter_raid.createAllRaid5Files(args.file, args.ndisk, args.segment)
   elif (args.ioimbalance):
     iopsimbalance.checkIOImbalance(filter_raid.createAllRaidList(args.file,args.ndisk,args.stripe), args.granularity)
   elif (args.combine):
