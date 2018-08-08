@@ -81,7 +81,7 @@ def createAllRaid5Files(infile, ndisk, segment_size):
     outfile = open("out/"+infile+"-raid5disk" + str(i) + ".trace", "w")
     outtraces.append(outfile)
 
-  blk_size = 4096 # or sector size in hdd (in bytes)
+  blk_size = 2048 # or sector size in hdd (in bytes)
   blk_per_segment = segment_size / blk_size
   blk_per_stripe = blk_per_segment * ndisk
 
