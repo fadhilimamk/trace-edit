@@ -81,6 +81,14 @@ def createAllRaid5Files(infile, ndisk, segment_size):
     outfile = open("out/"+infile+"-raid5disk" + str(i) + ".trace", "w")
     outtraces.append(outfile)
 
+  # some helper function
+  def writeTrace(id, trace):
+    if firstline[id] is False:
+      outtraces[id].write("\n")
+    else:
+      firstline[id] = False
+    outtraces[id].write(trace)
+
   blk_size = 2048 # or sector size in hdd (in bytes)
   blk_per_segment = segment_size / blk_size
   blk_per_stripe = blk_per_segment * ndisk
@@ -117,26 +125,29 @@ def createAllRaid5Files(infile, ndisk, segment_size):
       if current_blkcount + current_blkno > next_segment_blk:
         current_blkcount = next_segment_blk-current_blkno
 
-      if firstline[current_disk_id] is False:
-        outtraces[current_disk_id].write("\n")
-      else:
-        firstline[current_disk_id] = False
-      outtraces[current_disk_id].write("{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation))
+      if operation == 0:
+        writeTrace(current_disk_id, "{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, 1))
+      writeTrace(current_disk_id, "{} {} {} {} {}".format(time, devno, current_blkno, current_blkcount, operation))
       
       if max_blkcount_segment < current_blkcount: 
         max_blkcount_segment = current_blkcount
+
+      blkcount = blkcount - current_blkcount
+      
+      # write parity for last stripe
+      if operation == 0 and blkcount <= 0 :
+        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, 1))
+        writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
+        break
 
       # move to next segment and skip parity segment
       while True:
         current_disk_id = current_disk_id + 1
         if current_disk_id == ndisk:
           # write parity before change to next stripe
-          if operation == 0:
-            if firstline[current_stripe_id%ndisk] is False:
-              outtraces[current_stripe_id%ndisk].write("\n")
-            else:
-              firstline[current_stripe_id%ndisk] = False
-            outtraces[current_stripe_id%ndisk].write("{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
+          if operation == 0: # only for write operation
+            writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, 1))
+            writeTrace(current_stripe_id%ndisk, "{} {} {} {} {}".format(time, devno, min_blkno_segment, max_blkcount_segment, operation))
           current_disk_id = 0
           current_stripe_id = current_stripe_id + 1
         if current_disk_id != current_stripe_id%ndisk:
@@ -144,7 +155,7 @@ def createAllRaid5Files(infile, ndisk, segment_size):
           min_blkno_segment = current_blkno
           break
 
-      blkcount = blkcount - current_blkcount
+      
       next_segment_blk = (current_stripe_id+1)*blk_per_segment
 
   for i in range (0,ndisk):
